@@ -9,7 +9,7 @@ A GC arena works mostly like a regular arena with two key differences:
 With the exception of the extra header and the small amount of code needed to set it up, allocation is extremely fast.
 
 De-allocation performance is proportional to the amount of live objects.
-Feel free to allocate massive amounts of temporary data, the garbage collector won't even notice if there aren't any roots.
+Feel free to allocate massive amounts of temporary data, the garbage collector won't even notice if it isn't reachable from a root.
 
 The garbage collector is a simple copying semi-space collector using [Cheney's algorithm](https://en.wikipedia.org/wiki/Cheney%27s_algorithm).
 
@@ -51,7 +51,7 @@ The `NULL` argument to `swl_gc_alloc` in the example above is a pointer to a tra
 typedef struct MyDataStruct {
     int* foo;
     int* bar;
-}
+} MyDataStruct;
 
 void move_myds_members(SWL_GCArena* gc, void* ptr) {
     MyDataStruct* ds = ptr;
@@ -65,12 +65,16 @@ ds->bar = swl_gc_alloc(...);
 SWL_GC_COLLECT(&gc, &ds);
 ```
 
+Note: the function should only move direct members and should *not* be recursive. 
+Moving of the object itself and transitive moves are handled by the garbage collection algorithm.
+
 ## Underlying Arena
 
 GCArenas are backed by regular arenas. The current arena implementation uses a linked-list of malloc'ed chunks with no size limit.
-Alternative implementations based on fixed-size arenas or using mmap are possible as well, but not yet implemented.
+Alternative implementations based on fixed-size arenas or using mmap are possible as well, but are not implemented for now.
 
 ## TODO:
 
-- Need to find a way to lower the 24 byte header to 16 bytes.
+- Need to find a way to lower the 24 byte header to 16 bytes or less.
 - Alignment-handling code is wrong, try to keep your data aligned to 8 bytes for now.
+- Some more convenience macros.
