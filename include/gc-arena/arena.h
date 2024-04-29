@@ -6,6 +6,8 @@
 #define SWL_PAGE_SIZE 16384
 #endif
 
+uintptr_t swl_align(uintptr_t address, size_t alignment);
+
 typedef struct SWL_Chunk {
     struct SWL_Chunk* prev;
     struct SWL_Chunk* next;
@@ -20,7 +22,7 @@ size_t swl_chunk_used_space(SWL_Chunk* chunk);
 
 bool swl_chunk_contains(SWL_Chunk* chunk, void* ptr);
 
-SWL_Chunk* swl_chunk_new(size_t capacity, SWL_Chunk* prev);
+SWL_Chunk* swl_chunk_new(size_t capacity, SWL_Chunk* prev, size_t alignment);
 
 typedef struct SWL_Arena {
     SWL_Chunk* chunk;

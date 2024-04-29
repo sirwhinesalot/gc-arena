@@ -38,12 +38,14 @@ SWL_GCArena gc = swl_gc_arena_new(<starting-capacity>);
 int* foo = swl_gc_alloc(&gc, 5000, alignof(int), NULL);
 int* bar = swl_gc_alloc(&gc, 16000, alignof(int), NULL);
 int* baz = swl_gc_alloc(&gc, 3000, alignof(int), NULL);
-// &foo and &baz are roots
-SWL_GC_COLLECT(&gc, &foo, &baz);
+// foo and baz are roots
+SWL_GC_COLLECT(&gc, SWL_ROOT(foo), SWL_ROOT(baz));
 // bar is gone, poof
 ```
 
-SWL_GC_COLLECT is a convenience macro over the more general `swl_gc_collect` function. It takes in a pointer to a garbage collected arena and a list of pointers to roots, and frees everything that is not transitively reachable from those roots (the pointers are updated, hence needing the address of a pointer). For more complex use cases see `swl_gc_collect` which accepts a custom function.
+SWL_GC_COLLECT is a convenience macro over the more general `swl_gc_collect` function. It takes in a pointer to a garbage collected arena and a list of "roots" (using the SWL_ROOT macro), and frees everything that is not transitively reachable from those roots (the pointers are updated, hence needing the address of a pointer). For more complex use cases see `swl_gc_collect` which accepts a custom function.
+
+NOTE: do not pass custom alignments to swl_gc_alloc if you later use the SWL_GC_COLLECT macro, as the latter reads alignment information from the type of the root.
 
 The `NULL` argument to `swl_gc_alloc` in the example above is a pointer to a tracing function that moves the members/indexes of the datastructure that contain pointers to data in the GCArena, as otherwise GCArena does not know how to do so:
 
@@ -62,7 +64,7 @@ void move_myds_members(SWL_GCArena* gc, void* ptr) {
 MyDataStruct* ds = swl_gc_alloc(&gc, sizeof(MyDataStruct), alignof(MyDataStruct), move_my_ds_members);
 ds->foo = swl_gc_alloc(...);
 ds->bar = swl_gc_alloc(...);
-SWL_GC_COLLECT(&gc, &ds);
+SWL_GC_COLLECT(&gc, SWL_ROOT(ds));
 ```
 
 Note: the function should only move direct members and should *not* be recursive. 
@@ -73,8 +75,15 @@ Moving of the object itself and transitive moves are handled by the garbage coll
 GCArenas are backed by regular arenas. The current arena implementation uses a linked-list of malloc'ed chunks with no size limit.
 Alternative implementations based on fixed-size arenas or using mmap are possible as well, but are not implemented for now.
 
-## TODO:
+## TODO
 
 - Need to find a way to lower the 24 byte header to 16 bytes or less.
-- Alignment-handling code is wrong, try to keep your data aligned to 8 bytes for now.
 - Some more convenience macros.
+
+## Changelog
+
+- 0.2:
+    - Added proper alignment support.
+    - New SWL_ROOT macro that extracts alignment information from a root.
+- 0.1:
+    - First version 🥳.

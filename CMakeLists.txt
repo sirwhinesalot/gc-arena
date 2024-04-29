@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
 
-project(gc-arena VERSION 0.1 LANGUAGES C)
+project(gc-arena VERSION 0.2 LANGUAGES C)
 
 add_library(gc-arena include/gc-arena/arena.h src/arena.c src/gc.c)
 target_include_directories(gc-arena PUBLIC ${PROJECT_SOURCE_DIR}/include)

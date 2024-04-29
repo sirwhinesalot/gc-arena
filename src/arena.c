@@ -1,7 +1,8 @@
 #include "gc-arena/arena.h"
 
-static uintptr_t align(uintptr_t address, size_t alignment) {
-    return (address + (alignment - 1)) & -alignment;
+// note: also works with values, not just addresses
+uintptr_t swl_align(uintptr_t number, size_t alignment) {
+    return (number + (alignment - 1)) & -alignment;
 }
 
 size_t swl_chunk_capacity(SWL_Chunk* chunk) {
@@ -16,8 +17,11 @@ bool swl_chunk_contains(SWL_Chunk* chunk, void* ptr) {
     return (char*)ptr >= chunk->bottom && (char*)ptr < chunk->ceiling;
 }
 
-SWL_Chunk* swl_chunk_new(size_t capacity, SWL_Chunk* prev) {
-    SWL_Chunk* chunk = malloc(sizeof(SWL_Chunk) + capacity);
+SWL_Chunk* swl_chunk_new(size_t capacity, SWL_Chunk* prev, size_t alignment) {
+    size_t extended_capacity = swl_align(capacity + sizeof(SWL_Chunk), alignment);
+    // the return malloc buffer might be misaligned by up to (alignment/8-1) * 8 bytes
+    // store some extra bytes to allow for that shift
+    SWL_Chunk* chunk = malloc(extended_capacity + alignment);
     if (!chunk) { 
         abort(); 
     }
@@ -26,26 +30,31 @@ SWL_Chunk* swl_chunk_new(size_t capacity, SWL_Chunk* prev) {
     }
     chunk->prev = prev;
     chunk->next = NULL;
-    chunk->bottom = (char*)chunk + sizeof(SWL_Chunk);
+    // ensure the chunks start aligned
+    chunk->bottom = (char*)swl_align((uintptr_t)chunk + sizeof(SWL_Chunk), alignment);
     chunk->top = chunk->bottom;
-    chunk->ceiling = chunk->bottom + capacity;
+    chunk->ceiling = chunk->bottom + swl_align(capacity, alignment);
     return chunk;
 }
 
 SWL_Arena swl_arena_new(size_t capacity) {
-    return (SWL_Arena){swl_chunk_new(capacity, NULL)};
+    // TODO: find a way to avoid this hardcoded alignment
+    // perhaps the chunk is only requested on first allocation?
+    return (SWL_Arena){swl_chunk_new(capacity, NULL, 32)};
 }
 
 void* swl_arena_alloc(SWL_Arena* arena, size_t bytes, size_t alignment) {
-    arena->chunk->top = (char*)align((uintptr_t)arena->chunk->top, alignment);
-    if (arena->chunk->top + bytes >= arena->chunk->ceiling) {
+    size_t space_required = swl_align(bytes, alignment);
+    if (arena->chunk->top + space_required >= arena->chunk->ceiling) {
         size_t double_capacity = (arena->chunk->ceiling - arena->chunk->bottom) * 2;
-        size_t new_capacity = bytes > double_capacity ? align(bytes, SWL_PAGE_SIZE) : double_capacity;
-        SWL_Chunk* next = swl_chunk_new(new_capacity, arena->chunk);
+        // ensure we have enough space for the requested allocation
+        // 64 is the size of SWL_Chunk aligned to 32 bytes
+        size_t new_capacity = space_required > double_capacity ? space_required : double_capacity;
+        SWL_Chunk* next = swl_chunk_new(new_capacity, arena->chunk, alignment);
         arena->chunk = next;
     }
     void* result = arena->chunk->top;
-    arena->chunk->top += bytes;
+    arena->chunk->top += space_required;
     return result;
 }
 
