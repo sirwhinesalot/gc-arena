@@ -51,20 +51,22 @@ The `NULL` argument to `swl_gc_alloc` in the example above is a pointer to a tra
 
 ```c
 typedef struct MyDataStruct {
+    size_t count;
     int* foo;
     int* bar;
 } MyDataStruct;
 
 void move_myds_members(SWL_GCArena* gc, void* ptr) {
     MyDataStruct* ds = ptr;
-    *ds->foo = swl_gc_move(gc, ds->foo);
-    *ds->bar = swl_gc_move(gc, ds->bar);
+    *ds->foo = swl_gc_move(gc, ds->foo, ds->count, alignof(int));
+    *ds->bar = swl_gc_move(gc, ds->bar, ds->count, alignof(int));
 }
 
-MyDataStruct* ds = swl_gc_alloc(&gc, sizeof(MyDataStruct), alignof(MyDataStruct), move_my_ds_members);
-ds->foo = swl_gc_alloc(...);
-ds->bar = swl_gc_alloc(...);
-SWL_GC_COLLECT(&gc, SWL_ROOT(ds));
+MyDataStruct ds;
+ds.count = 1000;
+ds.foo = swl_gc_alloc(...);
+ds.bar = swl_gc_alloc(...);
+swl_gc_collect(&gc, &ds, move_myds_members);
 ```
 
 Note: the function should only move direct members and should *not* be recursive. 
