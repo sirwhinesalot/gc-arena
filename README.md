@@ -39,7 +39,6 @@ If you just want a basic (non-garbage-collected) arena, you can use: `#include "
 Working with a GCArena is pretty simple:
 
 ```c
-#include <stdio.h>
 #include <stdalign.h>
 #include "gc-arena/gc.h"
 
