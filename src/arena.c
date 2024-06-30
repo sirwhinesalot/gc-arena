@@ -1,8 +1,12 @@
+#include <assert.h>
 #include "gc-arena/arena.h"
 
-// note: also works with values, not just addresses
 uintptr_t swl_align(uintptr_t number, size_t alignment) {
-    return (number + (alignment - 1)) & -alignment;
+    if (alignment < 8) {
+        alignment = 8;
+    }
+    assert(alignment % 8 == 0);
+    return (number + alignment - 1) & -alignment;
 }
 
 size_t swl_chunk_capacity(SWL_Chunk* chunk) {
@@ -40,7 +44,7 @@ SWL_Chunk* swl_chunk_new(size_t capacity, SWL_Chunk* prev, size_t alignment) {
 SWL_Arena swl_arena_new(size_t capacity) {
     // TODO: find a way to avoid this hardcoded alignment
     // perhaps the chunk is only requested on first allocation?
-    return (SWL_Arena){swl_chunk_new(capacity, NULL, 32)};
+    return (SWL_Arena){swl_chunk_new(capacity, NULL, 8)};
 }
 
 void* swl_arena_alloc(SWL_Arena* arena, size_t bytes, size_t alignment) {
@@ -48,7 +52,6 @@ void* swl_arena_alloc(SWL_Arena* arena, size_t bytes, size_t alignment) {
     if (arena->chunk->top + space_required >= arena->chunk->ceiling) {
         size_t double_capacity = (arena->chunk->ceiling - arena->chunk->bottom) * 2;
         // ensure we have enough space for the requested allocation
-        // 64 is the size of SWL_Chunk aligned to 32 bytes
         size_t new_capacity = space_required > double_capacity ? space_required : double_capacity;
         SWL_Chunk* next = swl_chunk_new(new_capacity, arena->chunk, alignment);
         arena->chunk = next;
